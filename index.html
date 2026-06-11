@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Palautteenantoagentti</title>
+
+  <script src="https://cdn.botframework.com/botframework-webchat/latest/webchat.js"></script>
+
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f5f7fb;
+    }
+
+    .page {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header {
+      padding: 12px 16px;
+      background: #003e74;
+      color: white;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .subheader {
+      padding: 8px 16px;
+      background: #eef3f8;
+      color: #333;
+      font-size: 14px;
+      border-bottom: 1px solid #d9e2ec;
+    }
+
+    #webchat {
+      flex: 1;
+      min-height: 700px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">Palautteenantoagentti</div>
+    <div class="subheader">
+      Voit keskustella agentin kanssa ja liittää tiedoston, jos agentti pyytää sitä.
+    </div>
+    <div id="webchat" role="main"></div>
+  </div>
+
+  <script>
+    (async function () {
+      // 1) Laita tähän Copilot Studion Mobile app -kanavan Token Endpoint URL
+      const tokenEndpoint = "PASTA_TAHAN_TOKEN_ENDPOINT_URL";
+
+      // 2) Poimi api-version token endpointista
+      const apiVersion = new URL(tokenEndpoint).searchParams.get("api-version");
+
+      // 3) Hae alueellinen Direct Line -osoite + token
+      const [regionalSettings, tokenResponse] = await Promise.all([
+        fetch(new URL(`/powervirtualagents/regionalchannelsettings?api-version=${apiVersion}`, tokenEndpoint)).then(r => r.json()),
+        fetch(tokenEndpoint).then(r => r.json())
+      ]);
+
+      const directLineDomain = new URL("v3/directline", regionalSettings.channelUrlsById.directline).toString();
+
+      const directLine = window.WebChat.createDirectLine({
+        token: tokenResponse.token,
+        domain: directLineDomain,
+        webSocket: true
+      });
+
+      const styleSet = window.WebChat.createStyleSet({
+        rootHeight: '100%',
+        rootWidth: '100%',
+        backgroundColor: '#ffffff',
+        bubbleBackground: '#f2f4f8',
+        bubbleFromUserBackground: '#dceeff',
+        bubbleBorderRadius: 12,
+        sendBoxBorderTop: '1px solid #d0d7de',
+        hideUploadButton: false
+      });
+
+      window.WebChat.renderWebChat(
+        {
+          directLine,
+          styleSet,
+          locale: 'fi-FI',
+          userID: 'moodle-user',
+          username: 'Opiskelija'
+        },
+        document.getElementById('webchat')
+      );
+
+      // 4) Käynnistä keskustelu, jotta Greeting/topicit voivat laukea
+      directLine.postActivity({
+        type: 'event',
+        name: 'startConversation',
+        from: { id: 'moodle-user', role: 'user' },
+        locale: 'fi-FI'
+      }).subscribe();
+    })().catch(err => {
+      console.error(err);
+      document.getElementById('webchat').innerHTML =
+        '<div style="padding:16px;color:#b00020;">Web chatin käynnistäminen epäonnistui. Katso selaimen konsoli.</div>';
+    });
+  </script>
+</body>
+</html>
