@@ -13,6 +13,7 @@
       margin: 0;
       font-family: Arial, sans-serif;
       background: #f5f7fb;
+      color: #1f2937;
     }
 
     .page {
@@ -22,140 +23,148 @@
     }
 
     .header {
-      padding: 12px 16px;
+      padding: 14px 18px;
       background: #003e74;
       color: white;
-      font-size: 18px;
+      font-size: 19px;
       font-weight: 600;
     }
 
     .subheader {
-      padding: 8px 16px;
+      padding: 10px 18px;
       background: #eef3f8;
-      color: #333;
+      color: #334155;
       font-size: 14px;
       border-bottom: 1px solid #d9e2ec;
+      line-height: 1.5;
+    }
+
+    .statusbar {
+      padding: 10px 18px;
+      font-size: 14px;
+      background: #fffbea;
+      border-bottom: 1px solid #f5e6a8;
+      color: #7a5d00;
     }
 
     #webchat {
       flex: 1;
       min-height: 700px;
+      height: 700px;
+      background: #ffffff;
+    }
+
+    .placeholder {
+      padding: 32px 20px;
+      max-width: 820px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    .card {
+      background: white;
+      border: 1px solid #d8dee9;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+      margin-top: 20px;
+    }
+
+    .muted {
+      color: #64748b;
+      font-size: 14px;
     }
 
     .error {
-      margin: 16px;
+      margin: 16px 18px;
       padding: 12px;
       background: #fde7e9;
       border: 1px solid #d13438;
       color: #a4262c;
       white-space: pre-wrap;
       font-size: 14px;
+      border-radius: 8px;
+      display: none;
+    }
+
+    code {
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.95em;
     }
   </style>
 </head>
 <body>
   <div class="page">
     <div class="header">Palautteenantoagentti</div>
+
     <div class="subheader">
-      Voit keskustella agentin kanssa ja liittää tiedoston, jos agentti pyytää sitä.
+      Tämä sivu on rakennettu Microsoft 365 Agents SDK -integraatiota varten.
+      Kun kirjautuminen ja agenttiyhteys on otettu käyttöön, keskustelukenttä ilmestyy tähän.
     </div>
-    <div id="webchat" role="main"></div>
+
+    <div class="statusbar" id="statusBar">
+      Valmis pohja. Seuraavaksi tarvitaan Agents SDK -JavaScript, Entra ID -kirjautuminen ja Copilot Studio -connection string.
+    </div>
+
+    <div id="errorBox" class="error"></div>
+
+    <div id="webchat">
+      <div class="placeholder">
+        <div class="card">
+          <h2 style="margin-top:0;">Keskustelukenttä tulee tähän</h2>
+          <p>
+            Tämä sivu toimii käyttöliittymäpohjana Copilot Studio -agentille.
+            Native app / Microsoft 365 Agents SDK -mallissa varsinainen agenttiyhteys
+            tehdään JavaScript-sovelluksessa, joka:
+          </p>
+          <ol>
+            <li>kirjaa käyttäjän sisään Microsoft Entra ID:llä</li>
+            <li>hakee oikeudet Copilot Studio -agentin kutsumiseen</li>
+            <li>muodostaa yhteyden connection stringin avulla</li>
+            <li>renderöi agentin WebChatin tähän näkymään</li>
+          </ol>
+
+          <p class="muted">
+            Kun SDK-logiikka on lisätty, tämä placeholder korvautuu oikealla keskustelukentällä.
+          </p>
+        </div>
+
+        <div class="card">
+          <strong>Muistilista seuraavaa vaihetta varten</strong>
+          <ul>
+            <li>Copilot Studio → Channels → Native app → Microsoft 365 Agents SDK → connection string</li>
+            <li>Microsoft Entra ID app registration</li>
+            <li>API-oikeus: <code>CopilotStudio.Copilots.Invoke</code></li>
+            <li>JS-sovellus, joka käyttää Agents SDK:ta + WebChatia</li>
+          </ul>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
-    (async function () {
+    // Tämä on toistaiseksi vain käyttöliittymäpohja.
+    // Varsinainen yhteys Copilot Studio -agenttiin lisätään myöhemmin
+    // erillisellä JavaScript-sovelluksella, joka käyttää Microsoft 365 Agents SDK:ta.
+
+    (function () {
       try {
+        const statusBar = document.getElementById("statusBar");
+        statusBar.textContent =
+          "Pohja latautui oikein. Keskustelukenttä aktivoituu, kun Agents SDK -sovellus on liitetty tähän sivuun.";
+
         if (!window.WebChat) {
-          throw new Error("WebChat-kirjasto ei latautunut. Tarkista script src -rivi.");
+          throw new Error("Bot Framework WebChat -kirjasto ei latautunut.");
         }
-
-        // VAIHDA TÄMÄ
-        const tokenEndpoint = "https://defaulte9662d58caa44bc1b138c8b1acab5a.11.environment.api.powerplatform.com/copilotstudio/dataverse-backed/authenticated/bots/cr48b_Palautteenantodemo/conversations?api-version=2022-03-01-preview";
-
-        if (!tokenEndpoint || tokenEndpoint.includes("PASTA_TAHAN")) {
-          throw new Error("tokenEndpoint puuttuu tai sitä ei ole vaihdettu oikeaksi.");
-        }
-
-        const url = new URL(tokenEndpoint);
-        const apiVersion = url.searchParams.get("api-version");
-
-        if (!apiVersion) {
-          throw new Error("Token endpointistä ei löytynyt api-version-parametria.");
-        }
-
-        const regionalUrl = new URL(
-          `/powervirtualagents/regionalchannelsettings?api-version=${apiVersion}`,
-          tokenEndpoint
-        );
-
-        const [regionalSettingsResponse, tokenResponseRaw] = await Promise.all([
-          fetch(regionalUrl),
-          fetch(tokenEndpoint)
-        ]);
-
-        if (!regionalSettingsResponse.ok) {
-          throw new Error(`regionalchannelsettings epäonnistui: ${regionalSettingsResponse.status} ${regionalSettingsResponse.statusText}`);
-        }
-
-        if (!tokenResponseRaw.ok) {
-          throw new Error(`tokenEndpoint fetch epäonnistui: ${tokenResponseRaw.status} ${tokenResponseRaw.statusText}`);
-        }
-
-        const regionalSettings = await regionalSettingsResponse.json();
-        const tokenResponse = await tokenResponseRaw.json();
-
-        if (!regionalSettings?.channelUrlsById?.directline) {
-          throw new Error("regionalchannelsettings-vastauksesta ei löytynyt directline-osoitetta.");
-        }
-
-        if (!tokenResponse?.token) {
-          throw new Error("Token-vastauksesta ei löytynyt token-kenttää.");
-        }
-
-        const directLineDomain = new URL(
-          "v3/directline",
-          regionalSettings.channelUrlsById.directline
-        ).toString();
-
-        const directLine = window.WebChat.createDirectLine({
-          token: tokenResponse.token,
-          domain: directLineDomain,
-          webSocket: true
-        });
-
-        const styleSet = window.WebChat.createStyleSet({
-          rootHeight: '100%',
-          rootWidth: '100%',
-          backgroundColor: '#ffffff',
-          bubbleBackground: '#f2f4f8',
-          bubbleFromUserBackground: '#dceeff',
-          bubbleBorderRadius: 12,
-          sendBoxBorderTop: '1px solid #d0d7de'
-        });
-
-        window.WebChat.renderWebChat(
-          {
-            directLine,
-            styleSet,
-            locale: 'fi-FI',
-            userID: 'moodle-user',
-            username: 'Opiskelija'
-          },
-          document.getElementById('webchat')
-        );
-
-        directLine.postActivity({
-          type: 'event',
-          name: 'startConversation',
-          from: { id: 'moodle-user', role: 'user' },
-          locale: 'fi-FI'
-        }).subscribe(
-          id => console.log("startConversation lähetetty", id),
-          err => console.error("startConversation epäonnistui", err)
-        );
-
       } catch (err) {
-        console.error("Web chatin käynnistysvirhe:", err);
-        document.getElementById('webchat').innerHTML =
-          '<div class="error">Web chatin käynnistäminen epäonnistui.\n\n' +
-          (err?.message || err) +
+        const errorBox = document.getElementById("errorBox");
+        errorBox.style.display = "block";
+        errorBox.textContent = "Sivun alustuksessa tapahtui virhe: " + (err?.message || err);
+      }
+    })();
+  </script>
+</body>
+</html>
+``
