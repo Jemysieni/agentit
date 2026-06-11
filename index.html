@@ -41,6 +41,16 @@
       flex: 1;
       min-height: 700px;
     }
+
+    .error {
+      margin: 16px;
+      padding: 12px;
+      background: #fde7e9;
+      border: 1px solid #d13438;
+      color: #a4262c;
+      white-space: pre-wrap;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
@@ -54,60 +64,98 @@
 
   <script>
     (async function () {
-      // 1) Laita tähän Copilot Studion Mobile app -kanavan Token Endpoint URL
-      const tokenEndpoint = "PASTA_TAHAN_TOKEN_ENDPOINT_URL";
+      try {
+        if (!window.WebChat) {
+          throw new Error("WebChat-kirjasto ei latautunut. Tarkista script src -rivi.");
+        }
 
-      // 2) Poimi api-version token endpointista
-      const apiVersion = new URL(tokenEndpoint).searchParams.get("api-version");
+        // VAIHDA TÄMÄ
+        const tokenEndpoint = "PASTA_TAHAN_TOKEN_ENDPOINT_URL";
 
-      // 3) Hae alueellinen Direct Line -osoite + token
-      const [regionalSettings, tokenResponse] = await Promise.all([
-        fetch(new URL(`/powervirtualagents/regionalchannelsettings?api-version=${apiVersion}`, tokenEndpoint)).then(r => r.json()),
-        fetch(tokenEndpoint).then(r => r.json())
-      ]);
+        if (!tokenEndpoint || tokenEndpoint.includes("PASTA_TAHAN")) {
+          throw new Error("tokenEndpoint puuttuu tai sitä ei ole vaihdettu oikeaksi.");
+        }
 
-      const directLineDomain = new URL("v3/directline", regionalSettings.channelUrlsById.directline).toString();
+        const url = new URL(tokenEndpoint);
+        const apiVersion = url.searchParams.get("api-version");
 
-      const directLine = window.WebChat.createDirectLine({
-        token: tokenResponse.token,
-        domain: directLineDomain,
-        webSocket: true
-      });
+        if (!apiVersion) {
+          throw new Error("Token endpointistä ei löytynyt api-version-parametria.");
+        }
 
-      const styleSet = window.WebChat.createStyleSet({
-        rootHeight: '100%',
-        rootWidth: '100%',
-        backgroundColor: '#ffffff',
-        bubbleBackground: '#f2f4f8',
-        bubbleFromUserBackground: '#dceeff',
-        bubbleBorderRadius: 12,
-        sendBoxBorderTop: '1px solid #d0d7de',
-        hideUploadButton: false
-      });
+        const regionalUrl = new URL(
+          `/powervirtualagents/regionalchannelsettings?api-version=${apiVersion}`,
+          tokenEndpoint
+        );
 
-      window.WebChat.renderWebChat(
-        {
-          directLine,
-          styleSet,
-          locale: 'fi-FI',
-          userID: 'moodle-user',
-          username: 'Opiskelija'
-        },
-        document.getElementById('webchat')
-      );
+        const [regionalSettingsResponse, tokenResponseRaw] = await Promise.all([
+          fetch(regionalUrl),
+          fetch(tokenEndpoint)
+        ]);
 
-      // 4) Käynnistä keskustelu, jotta Greeting/topicit voivat laukea
-      directLine.postActivity({
-        type: 'event',
-        name: 'startConversation',
-        from: { id: 'moodle-user', role: 'user' },
-        locale: 'fi-FI'
-      }).subscribe();
-    })().catch(err => {
-      console.error(err);
-      document.getElementById('webchat').innerHTML =
-        '<div style="padding:16px;color:#b00020;">Web chatin käynnistäminen epäonnistui. Katso selaimen konsoli.</div>';
-    });
-  </script>
-</body>
-</html>
+        if (!regionalSettingsResponse.ok) {
+          throw new Error(`regionalchannelsettings epäonnistui: ${regionalSettingsResponse.status} ${regionalSettingsResponse.statusText}`);
+        }
+
+        if (!tokenResponseRaw.ok) {
+          throw new Error(`tokenEndpoint fetch epäonnistui: ${tokenResponseRaw.status} ${tokenResponseRaw.statusText}`);
+        }
+
+        const regionalSettings = await regionalSettingsResponse.json();
+        const tokenResponse = await tokenResponseRaw.json();
+
+        if (!regionalSettings?.channelUrlsById?.directline) {
+          throw new Error("regionalchannelsettings-vastauksesta ei löytynyt directline-osoitetta.");
+        }
+
+        if (!tokenResponse?.token) {
+          throw new Error("Token-vastauksesta ei löytynyt token-kenttää.");
+        }
+
+        const directLineDomain = new URL(
+          "v3/directline",
+          regionalSettings.channelUrlsById.directline
+        ).toString();
+
+        const directLine = window.WebChat.createDirectLine({
+          token: tokenResponse.token,
+          domain: directLineDomain,
+          webSocket: true
+        });
+
+        const styleSet = window.WebChat.createStyleSet({
+          rootHeight: '100%',
+          rootWidth: '100%',
+          backgroundColor: '#ffffff',
+          bubbleBackground: '#f2f4f8',
+          bubbleFromUserBackground: '#dceeff',
+          bubbleBorderRadius: 12,
+          sendBoxBorderTop: '1px solid #d0d7de'
+        });
+
+        window.WebChat.renderWebChat(
+          {
+            directLine,
+            styleSet,
+            locale: 'fi-FI',
+            userID: 'moodle-user',
+            username: 'Opiskelija'
+          },
+          document.getElementById('webchat')
+        );
+
+        directLine.postActivity({
+          type: 'event',
+          name: 'startConversation',
+          from: { id: 'moodle-user', role: 'user' },
+          locale: 'fi-FI'
+        }).subscribe(
+          id => console.log("startConversation lähetetty", id),
+          err => console.error("startConversation epäonnistui", err)
+        );
+
+      } catch (err) {
+        console.error("Web chatin käynnistysvirhe:", err);
+        document.getElementById('webchat').innerHTML =
+          '<div class="error">Web chatin käynnistäminen epäonnistui.\n\n' +
+          (err?.message || err) +
